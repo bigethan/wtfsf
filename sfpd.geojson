@@ -1,16 +1,16 @@
 {
-type: "FeatureCollection",
-features: [
+"type": "FeatureCollection",
+"features": [
 {
-type: "Feature",
-properties: {
-OBJECTID: 1,
-DISTRICT: "CENTRAL",
-COMPANY: "A"
+"type": "Feature",
+"properties": {
+"OBJECTID": 1,
+"DISTRICT": "CENTRAL",
+"COMPANY": "A"
 },
-geometry: {
-type: "Polygon",
-coordinates: [
+"geometry": {
+"type": "Polygon",
+"coordinates": [
 [
 [
 6011262.253454004,
@@ -2917,15 +2917,15 @@ coordinates: [
 }
 },
 {
-type: "Feature",
-properties: {
-OBJECTID: 2,
-DISTRICT: "SOUTHERN",
-COMPANY: "B"
+"type": "Feature",
+"properties": {
+"OBJECTID": 2,
+"DISTRICT": "SOUTHERN",
+"COMPANY": "B"
 },
-geometry: {
-type: "MultiPolygon",
-coordinates: [
+"geometry": {
+"type": "MultiPolygon",
+"coordinates": [
 [
 [
 [
@@ -14630,15 +14630,15 @@ coordinates: [
 }
 },
 {
-type: "Feature",
-properties: {
-OBJECTID: 3,
-DISTRICT: "BAYVIEW",
-COMPANY: "C"
+"type": "Feature",
+"properties": {
+"OBJECTID": 3,
+"DISTRICT": "BAYVIEW",
+"COMPANY": "C"
 },
-geometry: {
-type: "Polygon",
-coordinates: [
+"geometry": {
+"type": "Polygon",
+"coordinates": [
 [
 [
 6013975.688914004,
@@ -18069,15 +18069,15 @@ coordinates: [
 }
 },
 {
-type: "Feature",
-properties: {
-OBJECTID: 4,
-DISTRICT: "MISSION",
-COMPANY: "D"
+"type": "Feature",
+"properties": {
+"OBJECTID": 4,
+"DISTRICT": "MISSION",
+"COMPANY": "D"
 },
-geometry: {
-type: "Polygon",
-coordinates: [
+"geometry": {
+"type": "Polygon",
+"coordinates": [
 [
 [
 6010205.618764005,
@@ -20040,15 +20040,15 @@ coordinates: [
 }
 },
 {
-type: "Feature",
-properties: {
-OBJECTID: 5,
-DISTRICT: "PARK",
-COMPANY: "F"
+"type": "Feature",
+"properties": {
+"OBJECTID": 5,
+"DISTRICT": "PARK",
+"COMPANY": "F"
 },
-geometry: {
-type: "Polygon",
-coordinates: [
+"geometry": {
+"type": "Polygon",
+"coordinates": [
 [
 [
 5999090.205694004,
@@ -22211,15 +22211,15 @@ coordinates: [
 }
 },
 {
-type: "Feature",
-properties: {
-OBJECTID: 6,
-DISTRICT: "RICHMOND",
-COMPANY: "G"
+"type": "Feature",
+"properties": {
+"OBJECTID": 6,
+"DISTRICT": "RICHMOND",
+"COMPANY": "G"
 },
-geometry: {
-type: "Polygon",
-coordinates: [
+"geometry": {
+"type": "Polygon",
+"coordinates": [
 [
 [
 5998735.414014004,
@@ -26366,15 +26366,15 @@ coordinates: [
 }
 },
 {
-type: "Feature",
-properties: {
-OBJECTID: 7,
-DISTRICT: "INGLESIDE",
-COMPANY: "H"
+"type": "Feature",
+"properties": {
+"OBJECTID": 7,
+"DISTRICT": "INGLESIDE",
+"COMPANY": "H"
 },
-geometry: {
-type: "Polygon",
-coordinates: [
+"geometry": {
+"type": "Polygon",
+"coordinates": [
 [
 [
 6009670.537294004,
@@ -29449,15 +29449,15 @@ coordinates: [
 }
 },
 {
-type: "Feature",
-properties: {
-OBJECTID: 8,
-DISTRICT: "TARAVAL",
-COMPANY: "I"
+"type": "Feature",
+"properties": {
+"OBJECTID": 8,
+"DISTRICT": "TARAVAL",
+"COMPANY": "I"
 },
-geometry: {
-type: "Polygon",
-coordinates: [
+"geometry": {
+"type": "Polygon",
+"coordinates": [
 [
 [
 5996033.207034004,
@@ -35244,15 +35244,15 @@ coordinates: [
 }
 },
 {
-type: "Feature",
-properties: {
-OBJECTID: 9,
-DISTRICT: "NORTHERN",
-COMPANY: "E"
+"type": "Feature",
+"properties": {
+"OBJECTID": 9,
+"DISTRICT": "NORTHERN",
+"COMPANY": "E"
 },
-geometry: {
-type: "Polygon",
-coordinates: [
+"geometry": {
+"type": "Polygon",
+"coordinates": [
 [
 [
 5999602.000004005,
@@ -37115,15 +37115,15 @@ coordinates: [
 }
 },
 {
-type: "Feature",
-properties: {
-OBJECTID: 10,
-DISTRICT: "TENDERLOIN",
-COMPANY: "J"
+"type": "Feature",
+"properties": {
+"OBJECTID": 10,
+"DISTRICT": "TENDERLOIN",
+"COMPANY": "J"
 },
-geometry: {
-type: "Polygon",
-coordinates: [
+"geometry": {
+"type": "Polygon",
+"coordinates": [
 [
 [
 6007459.270984004,
