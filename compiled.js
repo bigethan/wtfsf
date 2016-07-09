@@ -424,6 +424,445 @@ process.chdir = function (dir) {
 process.umask = function() { return 0; };
 
 },{}],3:[function(require,module,exports){
+var gju = require('./geo-util')
+var places = require('places.js')
+
+var supesData;
+var oReq = new XMLHttpRequest();
+
+oReq.onload = reqListener;
+oReq.open("get", "districts.geojson", true);
+oReq.send();
+
+function reqListener(e) {
+  supesData = JSON.parse(this.responseText);
+  showUI()
+}
+
+function showUI() {
+  document.getElementsByClassName('loading')[0].style.opacity = '0'
+  document.getElementsByClassName('ui')[0].style.opacity = '1'
+}
+
+var placesAutocomplete = places({
+  container: document.getElementById('address')
+});
+
+placesAutocomplete.on('change', function(e) {
+  buisinessTime(e.sugestion.latlng)
+});
+
+},{"./geo-util":4,"places.js":45}],4:[function(require,module,exports){
+(function () {
+  var gju = this.gju = {};
+
+  // Export the geojson object for **CommonJS**
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = gju;
+  }
+
+  // adapted from http://www.kevlindev.com/gui/math/intersection/Intersection.js
+  gju.lineStringsIntersect = function (l1, l2) {
+    var intersects = [];
+    for (var i = 0; i <= l1.coordinates.length - 2; ++i) {
+      for (var j = 0; j <= l2.coordinates.length - 2; ++j) {
+        var a1 = {
+          x: l1.coordinates[i][1],
+          y: l1.coordinates[i][0]
+        },
+          a2 = {
+            x: l1.coordinates[i + 1][1],
+            y: l1.coordinates[i + 1][0]
+          },
+          b1 = {
+            x: l2.coordinates[j][1],
+            y: l2.coordinates[j][0]
+          },
+          b2 = {
+            x: l2.coordinates[j + 1][1],
+            y: l2.coordinates[j + 1][0]
+          },
+          ua_t = (b2.x - b1.x) * (a1.y - b1.y) - (b2.y - b1.y) * (a1.x - b1.x),
+          ub_t = (a2.x - a1.x) * (a1.y - b1.y) - (a2.y - a1.y) * (a1.x - b1.x),
+          u_b = (b2.y - b1.y) * (a2.x - a1.x) - (b2.x - b1.x) * (a2.y - a1.y);
+        if (u_b != 0) {
+          var ua = ua_t / u_b,
+            ub = ub_t / u_b;
+          if (0 <= ua && ua <= 1 && 0 <= ub && ub <= 1) {
+            intersects.push({
+              'type': 'Point',
+              'coordinates': [a1.x + ua * (a2.x - a1.x), a1.y + ua * (a2.y - a1.y)]
+            });
+          }
+        }
+      }
+    }
+    if (intersects.length == 0) intersects = false;
+    return intersects;
+  }
+
+  // Bounding Box
+
+  function boundingBoxAroundPolyCoords (coords) {
+    var xAll = [], yAll = []
+
+    for (var i = 0; i < coords[0].length; i++) {
+      xAll.push(coords[0][i][1])
+      yAll.push(coords[0][i][0])
+    }
+
+    xAll = xAll.sort(function (a,b) { return a - b })
+    yAll = yAll.sort(function (a,b) { return a - b })
+
+    return [ [xAll[0], yAll[0]], [xAll[xAll.length - 1], yAll[yAll.length - 1]] ]
+  }
+
+  gju.pointInBoundingBox = function (point, bounds) {
+    return !(point.coordinates[1] < bounds[0][0] || point.coordinates[1] > bounds[1][0] || point.coordinates[0] < bounds[0][1] || point.coordinates[0] > bounds[1][1])
+  }
+
+  // Point in Polygon
+  // http://www.ecse.rpi.edu/Homepages/wrf/Research/Short_Notes/pnpoly.html#Listing the Vertices
+
+  function pnpoly (x,y,coords) {
+    var vert = [ [0,0] ]
+
+    for (var i = 0; i < coords.length; i++) {
+      for (var j = 0; j < coords[i].length; j++) {
+        vert.push(coords[i][j])
+      }
+	  vert.push(coords[i][0])
+      vert.push([0,0])
+    }
+
+    var inside = false
+    for (var i = 0, j = vert.length - 1; i < vert.length; j = i++) {
+      if (((vert[i][0] > y) != (vert[j][0] > y)) && (x < (vert[j][1] - vert[i][1]) * (y - vert[i][0]) / (vert[j][0] - vert[i][0]) + vert[i][1])) inside = !inside
+    }
+
+    return inside
+  }
+
+  gju.pointInPolygon = function (p, poly) {
+    var coords = (poly.type == "Polygon") ? [ poly.coordinates ] : poly.coordinates
+
+    var insideBox = false
+    for (var i = 0; i < coords.length; i++) {
+      if (gju.pointInBoundingBox(p, boundingBoxAroundPolyCoords(coords[i]))) insideBox = true
+    }
+    if (!insideBox) return false
+
+    var insidePoly = false
+    for (var i = 0; i < coords.length; i++) {
+      if (pnpoly(p.coordinates[1], p.coordinates[0], coords[i])) insidePoly = true
+    }
+
+    return insidePoly
+  }
+
+  // support multi (but not donut) polygons
+  gju.pointInMultiPolygon = function (p, poly) {
+    var coords_array = (poly.type == "MultiPolygon") ? [ poly.coordinates ] : poly.coordinates
+
+    var insideBox = false
+    var insidePoly = false
+    for (var i = 0; i < coords_array.length; i++){
+      var coords = coords_array[i];
+      for (var j = 0; j < coords.length; j++) {
+        if (!insideBox){
+          if (gju.pointInBoundingBox(p, boundingBoxAroundPolyCoords(coords[j]))) {
+            insideBox = true
+          }
+        }
+      }
+      if (!insideBox) return false
+      for (var j = 0; j < coords.length; j++) {
+        if (!insidePoly){
+          if (pnpoly(p.coordinates[1], p.coordinates[0], coords[j])) {
+            insidePoly = true
+          }
+        }
+      }
+    }
+
+    return insidePoly
+  }
+
+  gju.numberToRadius = function (number) {
+    return number * Math.PI / 180;
+  }
+
+  gju.numberToDegree = function (number) {
+    return number * 180 / Math.PI;
+  }
+
+  // written with help from @tautologe
+  gju.drawCircle = function (radiusInMeters, centerPoint, steps) {
+    var center = [centerPoint.coordinates[1], centerPoint.coordinates[0]],
+      dist = (radiusInMeters / 1000) / 6371,
+      // convert meters to radiant
+      radCenter = [gju.numberToRadius(center[0]), gju.numberToRadius(center[1])],
+      steps = steps || 15,
+      // 15 sided circle
+      poly = [[center[0], center[1]]];
+    for (var i = 0; i < steps; i++) {
+      var brng = 2 * Math.PI * i / steps;
+      var lat = Math.asin(Math.sin(radCenter[0]) * Math.cos(dist)
+              + Math.cos(radCenter[0]) * Math.sin(dist) * Math.cos(brng));
+      var lng = radCenter[1] + Math.atan2(Math.sin(brng) * Math.sin(dist) * Math.cos(radCenter[0]),
+                                          Math.cos(dist) - Math.sin(radCenter[0]) * Math.sin(lat));
+      poly[i] = [];
+      poly[i][1] = gju.numberToDegree(lat);
+      poly[i][0] = gju.numberToDegree(lng);
+    }
+    return {
+      "type": "Polygon",
+      "coordinates": [poly]
+    };
+  }
+
+  // assumes rectangle starts at lower left point
+  gju.rectangleCentroid = function (rectangle) {
+    var bbox = rectangle.coordinates[0];
+    var xmin = bbox[0][0],
+      ymin = bbox[0][1],
+      xmax = bbox[2][0],
+      ymax = bbox[2][1];
+    var xwidth = xmax - xmin;
+    var ywidth = ymax - ymin;
+    return {
+      'type': 'Point',
+      'coordinates': [xmin + xwidth / 2, ymin + ywidth / 2]
+    };
+  }
+
+  // from http://www.movable-type.co.uk/scripts/latlong.html
+  gju.pointDistance = function (pt1, pt2) {
+    var lon1 = pt1.coordinates[0],
+      lat1 = pt1.coordinates[1],
+      lon2 = pt2.coordinates[0],
+      lat2 = pt2.coordinates[1],
+      dLat = gju.numberToRadius(lat2 - lat1),
+      dLon = gju.numberToRadius(lon2 - lon1),
+      a = Math.pow(Math.sin(dLat / 2), 2) + Math.cos(gju.numberToRadius(lat1))
+        * Math.cos(gju.numberToRadius(lat2)) * Math.pow(Math.sin(dLon / 2), 2),
+      c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return (6371 * c) * 1000; // returns meters
+  },
+
+  // checks if geometry lies entirely within a circle
+  // works with Point, LineString, Polygon
+  gju.geometryWithinRadius = function (geometry, center, radius) {
+    if (geometry.type == 'Point') {
+      return gju.pointDistance(geometry, center) <= radius;
+    } else if (geometry.type == 'LineString' || geometry.type == 'Polygon') {
+      var point = {};
+      var coordinates;
+      if (geometry.type == 'Polygon') {
+        // it's enough to check the exterior ring of the Polygon
+        coordinates = geometry.coordinates[0];
+      } else {
+        coordinates = geometry.coordinates;
+      }
+      for (var i in coordinates) {
+        point.coordinates = coordinates[i];
+        if (gju.pointDistance(point, center) > radius) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  // adapted from http://paulbourke.net/geometry/polyarea/javascript.txt
+  gju.area = function (polygon) {
+    var area = 0;
+    // TODO: polygon holes at coordinates[1]
+    var points = polygon.coordinates[0];
+    var j = points.length - 1;
+    var p1, p2;
+
+    for (var i = 0; i < points.length; j = i++) {
+      var p1 = {
+        x: points[i][1],
+        y: points[i][0]
+      };
+      var p2 = {
+        x: points[j][1],
+        y: points[j][0]
+      };
+      area += p1.x * p2.y;
+      area -= p1.y * p2.x;
+    }
+
+    area /= 2;
+    return area;
+  },
+
+  // adapted from http://paulbourke.net/geometry/polyarea/javascript.txt
+  gju.centroid = function (polygon) {
+    var f, x = 0,
+      y = 0;
+    // TODO: polygon holes at coordinates[1]
+    var points = polygon.coordinates[0];
+    var j = points.length - 1;
+    var p1, p2;
+
+    for (var i = 0; i < points.length; j = i++) {
+      var p1 = {
+        x: points[i][1],
+        y: points[i][0]
+      };
+      var p2 = {
+        x: points[j][1],
+        y: points[j][0]
+      };
+      f = p1.x * p2.y - p2.x * p1.y;
+      x += (p1.x + p2.x) * f;
+      y += (p1.y + p2.y) * f;
+    }
+
+    f = gju.area(polygon) * 6;
+    return {
+      'type': 'Point',
+      'coordinates': [y / f, x / f]
+    };
+  },
+
+  gju.simplify = function (source, kink) { /* source[] array of geojson points */
+    /* kink	in metres, kinks above this depth kept  */
+    /* kink depth is the height of the triangle abc where a-b and b-c are two consecutive line segments */
+    kink = kink || 20;
+    source = source.map(function (o) {
+      return {
+        lng: o.coordinates[0],
+        lat: o.coordinates[1]
+      }
+    });
+
+    var n_source, n_stack, n_dest, start, end, i, sig;
+    var dev_sqr, max_dev_sqr, band_sqr;
+    var x12, y12, d12, x13, y13, d13, x23, y23, d23;
+    var F = (Math.PI / 180.0) * 0.5;
+    var index = new Array(); /* aray of indexes of source points to include in the reduced line */
+    var sig_start = new Array(); /* indices of start & end of working section */
+    var sig_end = new Array();
+
+    /* check for simple cases */
+
+    if (source.length < 3) return (source); /* one or two points */
+
+    /* more complex case. initialize stack */
+
+    n_source = source.length;
+    band_sqr = kink * 360.0 / (2.0 * Math.PI * 6378137.0); /* Now in degrees */
+    band_sqr *= band_sqr;
+    n_dest = 0;
+    sig_start[0] = 0;
+    sig_end[0] = n_source - 1;
+    n_stack = 1;
+
+    /* while the stack is not empty  ... */
+    while (n_stack > 0) {
+
+      /* ... pop the top-most entries off the stacks */
+
+      start = sig_start[n_stack - 1];
+      end = sig_end[n_stack - 1];
+      n_stack--;
+
+      if ((end - start) > 1) { /* any intermediate points ? */
+
+        /* ... yes, so find most deviant intermediate point to
+        either side of line joining start & end points */
+
+        x12 = (source[end].lng() - source[start].lng());
+        y12 = (source[end].lat() - source[start].lat());
+        if (Math.abs(x12) > 180.0) x12 = 360.0 - Math.abs(x12);
+        x12 *= Math.cos(F * (source[end].lat() + source[start].lat())); /* use avg lat to reduce lng */
+        d12 = (x12 * x12) + (y12 * y12);
+
+        for (i = start + 1, sig = start, max_dev_sqr = -1.0; i < end; i++) {
+
+          x13 = source[i].lng() - source[start].lng();
+          y13 = source[i].lat() - source[start].lat();
+          if (Math.abs(x13) > 180.0) x13 = 360.0 - Math.abs(x13);
+          x13 *= Math.cos(F * (source[i].lat() + source[start].lat()));
+          d13 = (x13 * x13) + (y13 * y13);
+
+          x23 = source[i].lng() - source[end].lng();
+          y23 = source[i].lat() - source[end].lat();
+          if (Math.abs(x23) > 180.0) x23 = 360.0 - Math.abs(x23);
+          x23 *= Math.cos(F * (source[i].lat() + source[end].lat()));
+          d23 = (x23 * x23) + (y23 * y23);
+
+          if (d13 >= (d12 + d23)) dev_sqr = d23;
+          else if (d23 >= (d12 + d13)) dev_sqr = d13;
+          else dev_sqr = (x13 * y12 - y13 * x12) * (x13 * y12 - y13 * x12) / d12; // solve triangle
+          if (dev_sqr > max_dev_sqr) {
+            sig = i;
+            max_dev_sqr = dev_sqr;
+          }
+        }
+
+        if (max_dev_sqr < band_sqr) { /* is there a sig. intermediate point ? */
+          /* ... no, so transfer current start point */
+          index[n_dest] = start;
+          n_dest++;
+        } else { /* ... yes, so push two sub-sections on stack for further processing */
+          n_stack++;
+          sig_start[n_stack - 1] = sig;
+          sig_end[n_stack - 1] = end;
+          n_stack++;
+          sig_start[n_stack - 1] = start;
+          sig_end[n_stack - 1] = sig;
+        }
+      } else { /* ... no intermediate points, so transfer current start point */
+        index[n_dest] = start;
+        n_dest++;
+      }
+    }
+
+    /* transfer last point */
+    index[n_dest] = n_source - 1;
+    n_dest++;
+
+    /* make return array */
+    var r = new Array();
+    for (var i = 0; i < n_dest; i++)
+      r.push(source[index[i]]);
+
+    return r.map(function (o) {
+      return {
+        type: "Point",
+        coordinates: [o.lng, o.lat]
+      }
+    });
+  }
+
+  // http://www.movable-type.co.uk/scripts/latlong.html#destPoint
+  gju.destinationPoint = function (pt, brng, dist) {
+    dist = dist/6371;  // convert dist to angular distance in radians
+    brng = gju.numberToRadius(brng);
+
+    var lon1 = gju.numberToRadius(pt.coordinates[0]);
+    var lat1 = gju.numberToRadius(pt.coordinates[1]);
+
+    var lat2 = Math.asin( Math.sin(lat1)*Math.cos(dist) +
+                          Math.cos(lat1)*Math.sin(dist)*Math.cos(brng) );
+    var lon2 = lon1 + Math.atan2(Math.sin(brng)*Math.sin(dist)*Math.cos(lat1),
+                                 Math.cos(dist)-Math.sin(lat1)*Math.sin(lat2));
+    lon2 = (lon2+3*Math.PI) % (2*Math.PI) - Math.PI;  // normalise to -180..+180º
+
+    return {
+      'type': 'Point',
+      'coordinates': [gju.numberToDegree(lon2), gju.numberToDegree(lat2)]
+    };
+  };
+
+})();
+
+},{}],5:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -554,7 +993,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],4:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 module.exports = AlgoliaSearchCore;
 
 var errors = require('./errors');
@@ -1216,7 +1655,7 @@ function removeCredentials(headers) {
   return newHeaders;
 }
 
-},{"./IndexCore.js":5,"./clone.js":12,"./errors":13,"./exitPromise.js":14,"./map.js":15,"debug":35,"foreach":38,"isarray":42}],5:[function(require,module,exports){
+},{"./IndexCore.js":7,"./clone.js":14,"./errors":15,"./exitPromise.js":16,"./map.js":17,"debug":37,"foreach":40,"isarray":44}],7:[function(require,module,exports){
 var buildSearchMethod = require('./buildSearchMethod.js');
 
 module.exports = IndexCore;
@@ -1470,7 +1909,7 @@ IndexCore.prototype.indexName = null;
 IndexCore.prototype.typeAheadArgs = null;
 IndexCore.prototype.typeAheadValueOption = null;
 
-},{"./buildSearchMethod.js":11,"./merge.js":16}],6:[function(require,module,exports){
+},{"./buildSearchMethod.js":13,"./merge.js":18}],8:[function(require,module,exports){
 'use strict';
 
 var AlgoliaSearchCore = require('../../AlgoliaSearchCore.js');
@@ -1478,7 +1917,7 @@ var createAlgoliasearch = require('../createAlgoliasearch.js');
 
 module.exports = createAlgoliasearch(AlgoliaSearchCore, '(lite) ');
 
-},{"../../AlgoliaSearchCore.js":4,"../createAlgoliasearch.js":7}],7:[function(require,module,exports){
+},{"../../AlgoliaSearchCore.js":6,"../createAlgoliasearch.js":9}],9:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -1701,7 +2140,7 @@ module.exports = function createAlgoliasearch(AlgoliaSearch, uaSuffix) {
 };
 
 }).call(this,require('_process'))
-},{"../clone.js":12,"../errors":13,"../places.js":17,"../version.js":18,"./get-document-protocol":8,"./inline-headers":9,"./jsonp-request":10,"_process":2,"debug":35,"es6-promise":37,"global":39,"inherits":40}],8:[function(require,module,exports){
+},{"../clone.js":14,"../errors":15,"../places.js":19,"../version.js":20,"./get-document-protocol":10,"./inline-headers":11,"./jsonp-request":12,"_process":2,"debug":37,"es6-promise":39,"global":41,"inherits":42}],10:[function(require,module,exports){
 'use strict';
 
 module.exports = getDocumentProtocol;
@@ -1717,7 +2156,7 @@ function getDocumentProtocol() {
   return protocol;
 }
 
-},{}],9:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 'use strict';
 
 module.exports = inlineHeaders;
@@ -1734,7 +2173,7 @@ function inlineHeaders(url, headers) {
   return url + encode(headers);
 }
 
-},{"querystring-es3/encode":56}],10:[function(require,module,exports){
+},{"querystring-es3/encode":58}],12:[function(require,module,exports){
 'use strict';
 
 module.exports = jsonpRequest;
@@ -1861,7 +2300,7 @@ function jsonpRequest(url, opts, cb) {
   }
 }
 
-},{"../errors":13}],11:[function(require,module,exports){
+},{"../errors":15}],13:[function(require,module,exports){
 module.exports = buildSearchMethod;
 
 var errors = require('./errors.js');
@@ -1909,12 +2348,12 @@ function buildSearchMethod(queryParam, url) {
   };
 }
 
-},{"./errors.js":13}],12:[function(require,module,exports){
+},{"./errors.js":15}],14:[function(require,module,exports){
 module.exports = function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
 };
 
-},{}],13:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 'use strict';
 
 // This file hosts our error definitions
@@ -1994,7 +2433,7 @@ module.exports = {
   )
 };
 
-},{"foreach":38,"inherits":40}],14:[function(require,module,exports){
+},{"foreach":40,"inherits":42}],16:[function(require,module,exports){
 // Parse cloud does not supports setTimeout
 // We do not store a setTimeout reference in the client everytime
 // We only fallback to a fake setTimeout when not available
@@ -2003,7 +2442,7 @@ module.exports = function exitPromise(fn, _setTimeout) {
   _setTimeout(fn, 0);
 };
 
-},{}],15:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 var foreach = require('foreach');
 
 module.exports = function map(arr, fn) {
@@ -2014,7 +2453,7 @@ module.exports = function map(arr, fn) {
   return newArr;
 };
 
-},{"foreach":38}],16:[function(require,module,exports){
+},{"foreach":40}],18:[function(require,module,exports){
 var foreach = require('foreach');
 
 module.exports = function merge(destination/* , sources */) {
@@ -2035,7 +2474,7 @@ module.exports = function merge(destination/* , sources */) {
   return destination;
 };
 
-},{"foreach":38}],17:[function(require,module,exports){
+},{"foreach":40}],19:[function(require,module,exports){
 module.exports = createPlacesClient;
 
 var buildSearchMethod = require('./buildSearchMethod.js');
@@ -2066,17 +2505,17 @@ function createPlacesClient(algoliasearch) {
   };
 }
 
-},{"./buildSearchMethod.js":11,"./clone.js":12}],18:[function(require,module,exports){
+},{"./buildSearchMethod.js":13,"./clone.js":14}],20:[function(require,module,exports){
 'use strict';
 
 module.exports = '3.17.0';
 
-},{}],19:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 'use strict';
 
 module.exports = require('./src/standalone/');
 
-},{"./src/standalone/":33}],20:[function(require,module,exports){
+},{"./src/standalone/":35}],22:[function(require,module,exports){
 'use strict';
 
 var _ = require('../common/utils.js');
@@ -2161,7 +2600,7 @@ if (_.isMsie() && _.isMsie() <= 7) {
 
 module.exports = css;
 
-},{"../common/utils.js":29}],21:[function(require,module,exports){
+},{"../common/utils.js":31}],23:[function(require,module,exports){
 'use strict';
 
 var datasetKey = 'aaDataset';
@@ -2406,7 +2845,7 @@ function isValidName(str) {
 
 module.exports = Dataset;
 
-},{"../common/dom.js":28,"../common/utils.js":29,"./css.js":20,"./event_emitter.js":24,"./html.js":25}],22:[function(require,module,exports){
+},{"../common/dom.js":30,"../common/utils.js":31,"./css.js":22,"./event_emitter.js":26,"./html.js":27}],24:[function(require,module,exports){
 'use strict';
 
 var _ = require('../common/utils.js');
@@ -2737,7 +3176,7 @@ function initializeDataset($menu, oDataset, cssClasses) {
 
 module.exports = Dropdown;
 
-},{"../common/dom.js":28,"../common/utils.js":29,"./css.js":20,"./dataset.js":21,"./event_emitter.js":24}],23:[function(require,module,exports){
+},{"../common/dom.js":30,"../common/utils.js":31,"./css.js":22,"./dataset.js":23,"./event_emitter.js":26}],25:[function(require,module,exports){
 'use strict';
 
 var namespace = 'autocomplete:';
@@ -2774,7 +3213,7 @@ _.mixin(EventBus.prototype, {
 
 module.exports = EventBus;
 
-},{"../common/dom.js":28,"../common/utils.js":29}],24:[function(require,module,exports){
+},{"../common/dom.js":30,"../common/utils.js":31}],26:[function(require,module,exports){
 'use strict';
 
 var splitter = /\s+/;
@@ -2894,7 +3333,7 @@ function bindContext(fn, context) {
     function() { fn.apply(context, [].slice.call(arguments, 0)); };
 }
 
-},{}],25:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -2905,7 +3344,7 @@ module.exports = {
   suggestion: '<div class="%PREFIX%-%SUGGESTION%"></div>'
 };
 
-},{}],26:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 'use strict';
 
 var specialKeyCodeMap;
@@ -3231,7 +3670,7 @@ function withModifier($e) {
 
 module.exports = Input;
 
-},{"../common/dom.js":28,"../common/utils.js":29,"./event_emitter.js":24}],27:[function(require,module,exports){
+},{"../common/dom.js":30,"../common/utils.js":31,"./event_emitter.js":26}],29:[function(require,module,exports){
 'use strict';
 
 var attrsKey = 'aaAttrs';
@@ -3716,14 +4155,14 @@ Typeahead.sources = require('../sources/index.js');
 
 module.exports = Typeahead;
 
-},{"../common/dom.js":28,"../common/utils.js":29,"../sources/index.js":31,"./css.js":20,"./dropdown.js":22,"./event_bus.js":23,"./html.js":25,"./input.js":26}],28:[function(require,module,exports){
+},{"../common/dom.js":30,"../common/utils.js":31,"../sources/index.js":33,"./css.js":22,"./dropdown.js":24,"./event_bus.js":25,"./html.js":27,"./input.js":28}],30:[function(require,module,exports){
 'use strict';
 
 module.exports = {
   element: null
 };
 
-},{}],29:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 'use strict';
 
 var DOM = require('./dom.js');
@@ -3815,7 +4254,7 @@ module.exports = {
   }
 };
 
-},{"./dom.js":28}],30:[function(require,module,exports){
+},{"./dom.js":30}],32:[function(require,module,exports){
 'use strict';
 
 var _ = require('../common/utils.js');
@@ -3834,7 +4273,7 @@ module.exports = function search(index, params) {
   }
 };
 
-},{"../common/utils.js":29}],31:[function(require,module,exports){
+},{"../common/utils.js":31}],33:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -3842,7 +4281,7 @@ module.exports = {
   popularIn: require('./popularIn.js')
 };
 
-},{"./hits.js":30,"./popularIn.js":32}],32:[function(require,module,exports){
+},{"./hits.js":32,"./popularIn.js":34}],34:[function(require,module,exports){
 'use strict';
 
 var _ = require('../common/utils.js');
@@ -3917,7 +4356,7 @@ module.exports = function popularIn(index, params, details, options) {
   }
 };
 
-},{"../common/utils.js":29}],33:[function(require,module,exports){
+},{"../common/utils.js":31}],35:[function(require,module,exports){
 'use strict';
 
 var current$ = window.$;
@@ -3992,7 +4431,7 @@ autocomplete.sources = Typeahead.sources;
 
 module.exports = autocomplete;
 
-},{"../../zepto.js":34,"../autocomplete/event_bus.js":23,"../autocomplete/typeahead.js":27,"../common/dom.js":28,"../common/utils.js":29}],34:[function(require,module,exports){
+},{"../../zepto.js":36,"../autocomplete/event_bus.js":25,"../autocomplete/typeahead.js":29,"../common/dom.js":30,"../common/utils.js":31}],36:[function(require,module,exports){
 /*! Zepto 1.1.6 (generated with Zepto Builder) - zepto event assets data ie - zeptojs.com/license */
 //     Zepto.js
 //     (c) 2010-2016 Thomas Fuchs
@@ -5294,7 +5733,7 @@ window.$ === undefined && (window.$ = Zepto)
   }
 })()
 
-},{}],35:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -5464,7 +5903,7 @@ function localstorage(){
   } catch (e) {}
 }
 
-},{"./debug":36}],36:[function(require,module,exports){
+},{"./debug":38}],38:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -5663,7 +6102,7 @@ function coerce(val) {
   return val;
 }
 
-},{"algolia-ms":3}],37:[function(require,module,exports){
+},{"algolia-ms":5}],39:[function(require,module,exports){
 (function (process,global){
 /*!
  * @overview es6-promise - a tiny implementation of Promises/A+.
@@ -6626,7 +7065,7 @@ function coerce(val) {
 
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":2}],38:[function(require,module,exports){
+},{"_process":2}],40:[function(require,module,exports){
 
 var hasOwn = Object.prototype.hasOwnProperty;
 var toString = Object.prototype.toString;
@@ -6650,7 +7089,7 @@ module.exports = function forEach (obj, fn, ctx) {
 };
 
 
-},{}],39:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 (function (global){
 if (typeof window !== "undefined") {
     module.exports = window;
@@ -6663,7 +7102,7 @@ if (typeof window !== "undefined") {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],40:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -6688,7 +7127,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],41:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 var containers = []; // will store container HTMLElement references
 var styleElements = []; // will store {prepend: HTMLElement, append: HTMLElement}
 
@@ -6736,14 +7175,14 @@ function createStyleElement() {
     return styleElement;
 }
 
-},{}],42:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 var toString = {}.toString;
 
 module.exports = Array.isArray || function (arr) {
   return toString.call(arr) == '[object Array]';
 };
 
-},{}],43:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 'use strict';
 
 var _places = require('./src/places');
@@ -6760,7 +7199,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 module.exports = _places2.default;
 module.exports.version = _version2.default;
 
-},{"./src/places":54,"./src/version.js":55}],44:[function(require,module,exports){
+},{"./src/places":56,"./src/version.js":57}],46:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6796,7 +7235,7 @@ function createAutocompleteDataset(options) {
     name: 'places'
   };
 }
-},{"./createAutocompleteSource.js":45,"./defaultTemplates.js":46}],45:[function(require,module,exports){
+},{"./createAutocompleteSource.js":47,"./defaultTemplates.js":48}],47:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6905,7 +7344,7 @@ function createAutocompleteSource(_ref) {
     });
   };
 }
-},{"./formatHit.js":51,"./version.js":55}],46:[function(require,module,exports){
+},{"./formatHit.js":53,"./version.js":57}],48:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6935,7 +7374,7 @@ exports.default = {
   value: _formatInputValue2.default,
   suggestion: _formatDropdownValue2.default
 };
-},{"./formatDropdownValue.js":50,"./formatInputValue.js":52}],47:[function(require,module,exports){
+},{"./formatDropdownValue.js":52,"./formatInputValue.js":54}],49:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -6946,7 +7385,7 @@ exports.default = {
   badContainer: "Algolia Places: 'container' must point to an <input> element.\n\nSee https://community.algolia.com/places/documentation.html#api-options-container",
   rateLimitReached: "Algolia Places: Current rate limit reached.\n\nSign up for a free 100,000 queries/month account at\nhttps://www.algolia.com/users/sign_up/places.\n\nOr upgrade your 100,000 queries/month plan by contacting us at\nhttps://community.algolia.com/places/contact.html."
 };
-},{}],48:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -6962,7 +7401,7 @@ function findCountryCode(tags) {
     }
   }
 }
-},{}],49:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6979,7 +7418,7 @@ function findType(tags) {
     }
   }
 }
-},{}],50:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7021,7 +7460,7 @@ function formatDropdownValue(_ref) {
 
   return out;
 }
-},{}],51:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7097,7 +7536,7 @@ function formatHit(_ref) {
     };
   }
 }
-},{"./findCountryCode.js":48,"./findType.js":49}],52:[function(require,module,exports){
+},{"./findCountryCode.js":50,"./findType.js":51}],54:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7114,7 +7553,7 @@ function formatInputValue(_ref) {
   var out = ('' + name + (type !== 'country' && country !== undefined ? ',' : '') + '\n ' + (city ? city + ',' : '') + '\n ' + (administrative ? administrative + ',' : '') + '\n ' + (country ? country : '')).replace(/\s*\n\s*/g, ' ').trim();
   return out;
 }
-},{}],53:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 'use strict';
 
 // polyfill for navigator.language (IE <= 10)
@@ -7133,7 +7572,7 @@ if (!('language' in navigator)) {
   // appear to be in lower case, so we bring them into harmony with navigator.language.
   navigator.userLanguage && navigator.userLanguage.replace(/-[a-z]{2}$/, String.prototype.toUpperCase) || 'en-US'; // Default for anonymizing services: http://www.whatwg.org/specs/web-apps/current-work/multipage/timers.html#navigatorlanguage
 }
-},{}],54:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -7338,14 +7777,14 @@ function places(options) {
   return placesInstance;
 }
 }).call(this,require('_process'))
-},{"./createAutocompleteDataset.js":44,"./errors.js":47,"./navigatorLanguage.js":53,"_process":2,"algoliasearch/lite.js":6,"autocomplete.js":19,"events":1,"insert-css":41}],55:[function(require,module,exports){
+},{"./createAutocompleteDataset.js":46,"./errors.js":49,"./navigatorLanguage.js":55,"_process":2,"algoliasearch/lite.js":8,"autocomplete.js":21,"events":1,"insert-css":43}],57:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.default = '1.3.3';
-},{}],56:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -7432,443 +7871,4 @@ var objectKeys = Object.keys || function (obj) {
   return res;
 };
 
-},{}],57:[function(require,module,exports){
-var gju = require('./geo-util')
-var places = require('places.js')
-
-var supesData;
-var oReq = new XMLHttpRequest();
-
-oReq.onload = reqListener;
-oReq.open("get", "supes.geojson", true);
-oReq.send();
-
-function reqListener(e) {
-  supesData = JSON.parse(this.responseText);
-  showUI()
-}
-
-function showUI() {
-  document.getElementsByClassName('loading')[0].style.opacity = '0'
-  document.getElementsByClassName('ui')[0].style.opacity = '1'
-}
-
-var placesAutocomplete = places({
-  container: document.getElementById('address')
-});
-
-placesAutocomplete.on('change', function(e) {
-  console.log(e)
-});
-
-},{"./geo-util":58,"places.js":43}],58:[function(require,module,exports){
-(function () {
-  var gju = this.gju = {};
-
-  // Export the geojson object for **CommonJS**
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = gju;
-  }
-
-  // adapted from http://www.kevlindev.com/gui/math/intersection/Intersection.js
-  gju.lineStringsIntersect = function (l1, l2) {
-    var intersects = [];
-    for (var i = 0; i <= l1.coordinates.length - 2; ++i) {
-      for (var j = 0; j <= l2.coordinates.length - 2; ++j) {
-        var a1 = {
-          x: l1.coordinates[i][1],
-          y: l1.coordinates[i][0]
-        },
-          a2 = {
-            x: l1.coordinates[i + 1][1],
-            y: l1.coordinates[i + 1][0]
-          },
-          b1 = {
-            x: l2.coordinates[j][1],
-            y: l2.coordinates[j][0]
-          },
-          b2 = {
-            x: l2.coordinates[j + 1][1],
-            y: l2.coordinates[j + 1][0]
-          },
-          ua_t = (b2.x - b1.x) * (a1.y - b1.y) - (b2.y - b1.y) * (a1.x - b1.x),
-          ub_t = (a2.x - a1.x) * (a1.y - b1.y) - (a2.y - a1.y) * (a1.x - b1.x),
-          u_b = (b2.y - b1.y) * (a2.x - a1.x) - (b2.x - b1.x) * (a2.y - a1.y);
-        if (u_b != 0) {
-          var ua = ua_t / u_b,
-            ub = ub_t / u_b;
-          if (0 <= ua && ua <= 1 && 0 <= ub && ub <= 1) {
-            intersects.push({
-              'type': 'Point',
-              'coordinates': [a1.x + ua * (a2.x - a1.x), a1.y + ua * (a2.y - a1.y)]
-            });
-          }
-        }
-      }
-    }
-    if (intersects.length == 0) intersects = false;
-    return intersects;
-  }
-
-  // Bounding Box
-
-  function boundingBoxAroundPolyCoords (coords) {
-    var xAll = [], yAll = []
-
-    for (var i = 0; i < coords[0].length; i++) {
-      xAll.push(coords[0][i][1])
-      yAll.push(coords[0][i][0])
-    }
-
-    xAll = xAll.sort(function (a,b) { return a - b })
-    yAll = yAll.sort(function (a,b) { return a - b })
-
-    return [ [xAll[0], yAll[0]], [xAll[xAll.length - 1], yAll[yAll.length - 1]] ]
-  }
-
-  gju.pointInBoundingBox = function (point, bounds) {
-    return !(point.coordinates[1] < bounds[0][0] || point.coordinates[1] > bounds[1][0] || point.coordinates[0] < bounds[0][1] || point.coordinates[0] > bounds[1][1])
-  }
-
-  // Point in Polygon
-  // http://www.ecse.rpi.edu/Homepages/wrf/Research/Short_Notes/pnpoly.html#Listing the Vertices
-
-  function pnpoly (x,y,coords) {
-    var vert = [ [0,0] ]
-
-    for (var i = 0; i < coords.length; i++) {
-      for (var j = 0; j < coords[i].length; j++) {
-        vert.push(coords[i][j])
-      }
-	  vert.push(coords[i][0])
-      vert.push([0,0])
-    }
-
-    var inside = false
-    for (var i = 0, j = vert.length - 1; i < vert.length; j = i++) {
-      if (((vert[i][0] > y) != (vert[j][0] > y)) && (x < (vert[j][1] - vert[i][1]) * (y - vert[i][0]) / (vert[j][0] - vert[i][0]) + vert[i][1])) inside = !inside
-    }
-
-    return inside
-  }
-
-  gju.pointInPolygon = function (p, poly) {
-    var coords = (poly.type == "Polygon") ? [ poly.coordinates ] : poly.coordinates
-
-    var insideBox = false
-    for (var i = 0; i < coords.length; i++) {
-      if (gju.pointInBoundingBox(p, boundingBoxAroundPolyCoords(coords[i]))) insideBox = true
-    }
-    if (!insideBox) return false
-
-    var insidePoly = false
-    for (var i = 0; i < coords.length; i++) {
-      if (pnpoly(p.coordinates[1], p.coordinates[0], coords[i])) insidePoly = true
-    }
-
-    return insidePoly
-  }
-
-  // support multi (but not donut) polygons
-  gju.pointInMultiPolygon = function (p, poly) {
-    var coords_array = (poly.type == "MultiPolygon") ? [ poly.coordinates ] : poly.coordinates
-
-    var insideBox = false
-    var insidePoly = false
-    for (var i = 0; i < coords_array.length; i++){
-      var coords = coords_array[i];
-      for (var j = 0; j < coords.length; j++) {
-        if (!insideBox){
-          if (gju.pointInBoundingBox(p, boundingBoxAroundPolyCoords(coords[j]))) {
-            insideBox = true
-          }
-        }
-      }
-      if (!insideBox) return false
-      for (var j = 0; j < coords.length; j++) {
-        if (!insidePoly){
-          if (pnpoly(p.coordinates[1], p.coordinates[0], coords[j])) {
-            insidePoly = true
-          }
-        }
-      }
-    }
-
-    return insidePoly
-  }
-
-  gju.numberToRadius = function (number) {
-    return number * Math.PI / 180;
-  }
-
-  gju.numberToDegree = function (number) {
-    return number * 180 / Math.PI;
-  }
-
-  // written with help from @tautologe
-  gju.drawCircle = function (radiusInMeters, centerPoint, steps) {
-    var center = [centerPoint.coordinates[1], centerPoint.coordinates[0]],
-      dist = (radiusInMeters / 1000) / 6371,
-      // convert meters to radiant
-      radCenter = [gju.numberToRadius(center[0]), gju.numberToRadius(center[1])],
-      steps = steps || 15,
-      // 15 sided circle
-      poly = [[center[0], center[1]]];
-    for (var i = 0; i < steps; i++) {
-      var brng = 2 * Math.PI * i / steps;
-      var lat = Math.asin(Math.sin(radCenter[0]) * Math.cos(dist)
-              + Math.cos(radCenter[0]) * Math.sin(dist) * Math.cos(brng));
-      var lng = radCenter[1] + Math.atan2(Math.sin(brng) * Math.sin(dist) * Math.cos(radCenter[0]),
-                                          Math.cos(dist) - Math.sin(radCenter[0]) * Math.sin(lat));
-      poly[i] = [];
-      poly[i][1] = gju.numberToDegree(lat);
-      poly[i][0] = gju.numberToDegree(lng);
-    }
-    return {
-      "type": "Polygon",
-      "coordinates": [poly]
-    };
-  }
-
-  // assumes rectangle starts at lower left point
-  gju.rectangleCentroid = function (rectangle) {
-    var bbox = rectangle.coordinates[0];
-    var xmin = bbox[0][0],
-      ymin = bbox[0][1],
-      xmax = bbox[2][0],
-      ymax = bbox[2][1];
-    var xwidth = xmax - xmin;
-    var ywidth = ymax - ymin;
-    return {
-      'type': 'Point',
-      'coordinates': [xmin + xwidth / 2, ymin + ywidth / 2]
-    };
-  }
-
-  // from http://www.movable-type.co.uk/scripts/latlong.html
-  gju.pointDistance = function (pt1, pt2) {
-    var lon1 = pt1.coordinates[0],
-      lat1 = pt1.coordinates[1],
-      lon2 = pt2.coordinates[0],
-      lat2 = pt2.coordinates[1],
-      dLat = gju.numberToRadius(lat2 - lat1),
-      dLon = gju.numberToRadius(lon2 - lon1),
-      a = Math.pow(Math.sin(dLat / 2), 2) + Math.cos(gju.numberToRadius(lat1))
-        * Math.cos(gju.numberToRadius(lat2)) * Math.pow(Math.sin(dLon / 2), 2),
-      c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return (6371 * c) * 1000; // returns meters
-  },
-
-  // checks if geometry lies entirely within a circle
-  // works with Point, LineString, Polygon
-  gju.geometryWithinRadius = function (geometry, center, radius) {
-    if (geometry.type == 'Point') {
-      return gju.pointDistance(geometry, center) <= radius;
-    } else if (geometry.type == 'LineString' || geometry.type == 'Polygon') {
-      var point = {};
-      var coordinates;
-      if (geometry.type == 'Polygon') {
-        // it's enough to check the exterior ring of the Polygon
-        coordinates = geometry.coordinates[0];
-      } else {
-        coordinates = geometry.coordinates;
-      }
-      for (var i in coordinates) {
-        point.coordinates = coordinates[i];
-        if (gju.pointDistance(point, center) > radius) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
-  // adapted from http://paulbourke.net/geometry/polyarea/javascript.txt
-  gju.area = function (polygon) {
-    var area = 0;
-    // TODO: polygon holes at coordinates[1]
-    var points = polygon.coordinates[0];
-    var j = points.length - 1;
-    var p1, p2;
-
-    for (var i = 0; i < points.length; j = i++) {
-      var p1 = {
-        x: points[i][1],
-        y: points[i][0]
-      };
-      var p2 = {
-        x: points[j][1],
-        y: points[j][0]
-      };
-      area += p1.x * p2.y;
-      area -= p1.y * p2.x;
-    }
-
-    area /= 2;
-    return area;
-  },
-
-  // adapted from http://paulbourke.net/geometry/polyarea/javascript.txt
-  gju.centroid = function (polygon) {
-    var f, x = 0,
-      y = 0;
-    // TODO: polygon holes at coordinates[1]
-    var points = polygon.coordinates[0];
-    var j = points.length - 1;
-    var p1, p2;
-
-    for (var i = 0; i < points.length; j = i++) {
-      var p1 = {
-        x: points[i][1],
-        y: points[i][0]
-      };
-      var p2 = {
-        x: points[j][1],
-        y: points[j][0]
-      };
-      f = p1.x * p2.y - p2.x * p1.y;
-      x += (p1.x + p2.x) * f;
-      y += (p1.y + p2.y) * f;
-    }
-
-    f = gju.area(polygon) * 6;
-    return {
-      'type': 'Point',
-      'coordinates': [y / f, x / f]
-    };
-  },
-
-  gju.simplify = function (source, kink) { /* source[] array of geojson points */
-    /* kink	in metres, kinks above this depth kept  */
-    /* kink depth is the height of the triangle abc where a-b and b-c are two consecutive line segments */
-    kink = kink || 20;
-    source = source.map(function (o) {
-      return {
-        lng: o.coordinates[0],
-        lat: o.coordinates[1]
-      }
-    });
-
-    var n_source, n_stack, n_dest, start, end, i, sig;
-    var dev_sqr, max_dev_sqr, band_sqr;
-    var x12, y12, d12, x13, y13, d13, x23, y23, d23;
-    var F = (Math.PI / 180.0) * 0.5;
-    var index = new Array(); /* aray of indexes of source points to include in the reduced line */
-    var sig_start = new Array(); /* indices of start & end of working section */
-    var sig_end = new Array();
-
-    /* check for simple cases */
-
-    if (source.length < 3) return (source); /* one or two points */
-
-    /* more complex case. initialize stack */
-
-    n_source = source.length;
-    band_sqr = kink * 360.0 / (2.0 * Math.PI * 6378137.0); /* Now in degrees */
-    band_sqr *= band_sqr;
-    n_dest = 0;
-    sig_start[0] = 0;
-    sig_end[0] = n_source - 1;
-    n_stack = 1;
-
-    /* while the stack is not empty  ... */
-    while (n_stack > 0) {
-
-      /* ... pop the top-most entries off the stacks */
-
-      start = sig_start[n_stack - 1];
-      end = sig_end[n_stack - 1];
-      n_stack--;
-
-      if ((end - start) > 1) { /* any intermediate points ? */
-
-        /* ... yes, so find most deviant intermediate point to
-        either side of line joining start & end points */
-
-        x12 = (source[end].lng() - source[start].lng());
-        y12 = (source[end].lat() - source[start].lat());
-        if (Math.abs(x12) > 180.0) x12 = 360.0 - Math.abs(x12);
-        x12 *= Math.cos(F * (source[end].lat() + source[start].lat())); /* use avg lat to reduce lng */
-        d12 = (x12 * x12) + (y12 * y12);
-
-        for (i = start + 1, sig = start, max_dev_sqr = -1.0; i < end; i++) {
-
-          x13 = source[i].lng() - source[start].lng();
-          y13 = source[i].lat() - source[start].lat();
-          if (Math.abs(x13) > 180.0) x13 = 360.0 - Math.abs(x13);
-          x13 *= Math.cos(F * (source[i].lat() + source[start].lat()));
-          d13 = (x13 * x13) + (y13 * y13);
-
-          x23 = source[i].lng() - source[end].lng();
-          y23 = source[i].lat() - source[end].lat();
-          if (Math.abs(x23) > 180.0) x23 = 360.0 - Math.abs(x23);
-          x23 *= Math.cos(F * (source[i].lat() + source[end].lat()));
-          d23 = (x23 * x23) + (y23 * y23);
-
-          if (d13 >= (d12 + d23)) dev_sqr = d23;
-          else if (d23 >= (d12 + d13)) dev_sqr = d13;
-          else dev_sqr = (x13 * y12 - y13 * x12) * (x13 * y12 - y13 * x12) / d12; // solve triangle
-          if (dev_sqr > max_dev_sqr) {
-            sig = i;
-            max_dev_sqr = dev_sqr;
-          }
-        }
-
-        if (max_dev_sqr < band_sqr) { /* is there a sig. intermediate point ? */
-          /* ... no, so transfer current start point */
-          index[n_dest] = start;
-          n_dest++;
-        } else { /* ... yes, so push two sub-sections on stack for further processing */
-          n_stack++;
-          sig_start[n_stack - 1] = sig;
-          sig_end[n_stack - 1] = end;
-          n_stack++;
-          sig_start[n_stack - 1] = start;
-          sig_end[n_stack - 1] = sig;
-        }
-      } else { /* ... no intermediate points, so transfer current start point */
-        index[n_dest] = start;
-        n_dest++;
-      }
-    }
-
-    /* transfer last point */
-    index[n_dest] = n_source - 1;
-    n_dest++;
-
-    /* make return array */
-    var r = new Array();
-    for (var i = 0; i < n_dest; i++)
-      r.push(source[index[i]]);
-
-    return r.map(function (o) {
-      return {
-        type: "Point",
-        coordinates: [o.lng, o.lat]
-      }
-    });
-  }
-
-  // http://www.movable-type.co.uk/scripts/latlong.html#destPoint
-  gju.destinationPoint = function (pt, brng, dist) {
-    dist = dist/6371;  // convert dist to angular distance in radians
-    brng = gju.numberToRadius(brng);
-
-    var lon1 = gju.numberToRadius(pt.coordinates[0]);
-    var lat1 = gju.numberToRadius(pt.coordinates[1]);
-
-    var lat2 = Math.asin( Math.sin(lat1)*Math.cos(dist) +
-                          Math.cos(lat1)*Math.sin(dist)*Math.cos(brng) );
-    var lon2 = lon1 + Math.atan2(Math.sin(brng)*Math.sin(dist)*Math.cos(lat1),
-                                 Math.cos(dist)-Math.sin(lat1)*Math.sin(lat2));
-    lon2 = (lon2+3*Math.PI) % (2*Math.PI) - Math.PI;  // normalise to -180..+180º
-
-    return {
-      'type': 'Point',
-      'coordinates': [gju.numberToDegree(lon2), gju.numberToDegree(lat2)]
-    };
-  };
-
-})();
-
-},{}]},{},[57]);
+},{}]},{},[3]);
