@@ -425,53 +425,115 @@ process.umask = function() { return 0; };
 
 },{}],3:[function(require,module,exports){
 module.exports={
-    "districts": {
-        "ONE": [
+    "districts": [
+        { "name": "ONE",
+          "box": [
             [37.76358600019731, -122.5149480005053],
             [37.78870400009008, -122.4464709995178]
-        ],
-        "TWO": [
+        ]},
+        { "name": "TWO",
+          "box": [
             [37.77862199977503, -122.49374357037841],
             [37.81102500009568, -122.41576199951217]
-        ],
-        "THREE": [
+        ]},
+        { "name": "THREE",
+          "box": [
             [37.783990999873026, -122.42398199986818],
             [37.81157399974776, -122.3911959999449]
-        ],
-        "FOUR": [
+        ]},
+        { "name": "FOUR",
+          "box": [
             [37.73377100026694, -122.51247199973622],
             [37.76557999966404, -122.47485499958422]
-        ],
-        "FIVE": [
+        ]},
+        { "name": "FIVE",
+          "box": [
             [37.75857600015055, -122.47736300001839],
             [37.7897429998704, -122.41925600041843]
-        ],
-        "SIX": [
+        ]},
+        { "name": "SIX",
+          "box": [
             [37.7640670002476, -122.42326700026582],
             [37.794479999824574, -122.38145599943424]
-        ],
-        "SEVEN": [
+        ]},
+        { "name": "SEVEN",
+          "box": [
             [37.70813199967884, -122.50853800049634],
             [37.7639956979842, -122.4349930003003]
-        ],
-        "EIGHT": [
+        ]},
+        { "name": "EIGHT",
+          "box": [
             [37.729302999941396, -122.45162400011169],
             [37.77273400014549, -122.4202789996046]
-        ],
-        "NINE": [
+        ]},
+        { "name": "NINE",
+          "box": [
             [37.717886999687295, -122.42803800020367],
             [37.77071499955871, -122.40038200055012]
-        ],
-        "TEN": [
+        ]},
+        { "name": "TEN",
+          "box": [
             [37.708229999830664, -122.42791500050676],
             [37.77181700036521, -122.35696700003662]
-        ],
-        "ELEVEN": [
+        ]},
+        { "name": "ELEVEN",
+          "box": [
             [37.70813100002817, -122.47257200044542],
             [37.73201600020351, -122.42042000026456]
-        ],
-    },
-    "sfpd": {},
+        ]},
+    ],
+    "sfpd": [
+        { "name": "PARK",
+          "box": [
+            [37.743055, -122.464416],
+            [37.784333, -122.431187]
+        ]},
+        { "name": "RICHMOND",
+          "box": [
+            [37.763969, -122.514949],
+            [37.793931, -122.434769]
+        ]},
+        { "name": "INGLESIDE",
+          "box": [
+            [37.708216, -122.461644],
+            [37.748922, -122.398153]
+        ]},
+        { "name": "TARAVAL",
+          "box": [
+            [37.708089, -122.512568],
+            [37.766111, -122.448116]
+        ]},
+        { "name": "CENTRAL",
+          "box": [
+            [37.786023, -122.42685],
+            [37.811575, -122.392919]
+        ]},
+        { "name": "SOUTHERN",
+          "box": [
+            [37.76606, -122.426403],
+            [37.797949, -122.384341]
+        ]},
+        { "name": "BAYVIEW",
+          "box": [
+            [37.708363, -122.419533],
+            [37.776807, -122.356983]
+        ]},
+        { "name": "TENDERLOIN",
+          "box": [
+            [37.777827, -122.417949],
+            [37.787855, -122.403584]
+        ]},
+        { "name": "MISSION",
+          "box": [
+            [37.745224, -122.445087],
+            [37.770348, -122.402884]
+        ]},
+        { "name": "NORTHERN",
+          "box": [
+            [37.766073, -122.449857],
+            [37.809218, -122.416301]
+        ]},
+    ],
     "sffd": {},
 }
 
@@ -480,27 +542,6 @@ var gju = require('geojson-utils');
 var places = require('places.js')
 var bboxes = require('./boundingboxes')
 
-var supesData;
-var oReq = new XMLHttpRequest();
-
-oReq.onload = reqListener;
-oReq.open("get", "districts.geojson", true);
-oReq.send();
-
-var sfpdReq = new XMLHttpRequest();
-
-sfpdReq.onload = sfpdReqListener;
-sfpdReq.open("get", "sfpd.geojson", true);
-sfpdReq.send();
-
-function reqListener(e) {
-  supesData = JSON.parse(this.responseText);
-  showUI()
-}
-
-function sfpdReqListener(e) {
-  sfpdData = JSON.parse(this.responseText);
-}
 
 function showUI() {
   document.getElementsByClassName('loading')[0].style.opacity = '0'
@@ -517,31 +558,70 @@ placesAutocomplete.on('change', function(e) {
 });
 
 function buisinessTime(lat, long) {
-  supesData.features.forEach(function (f) {
-    console.log(f.properties);
-    var inDistrict = gju.pointInPolygon({
-      "type":"Point",
-      "coordinates":[long, lat]},
-      {
-        "type":"Polygon",
-        "coordinates": f.geometry.coordinates[0],
-      }
-    )
-    console.log(inDistrict ? f.properties.supdist : 'nope')
+  var dBbox = 0
+  var pdBbox = 0
+  bboxes.districts.forEach(function(f) {
+    var inBoxDistrict = gju.pointInBoundingBox({'coordinates':[long, lat]}, f.box)
+    dBbox += inBoxDistrict ? 1 : 0;
+    if (inBoxDistrict) {
+      console.log(f.name)
+    }
   })
-  sfpdData.features.forEach(function (f) {
-    console.log(f.properties);
-    var inDistrict = gju.pointInPolygon({
-      "type":"Point",
-      "coordinates":[long, lat]},
-      {
-        "type":"Polygon",
-        "coordinates": f.geometry.coordinates[0],
-      }
-    )
-    console.log(inDistrict ? f.properties.DISTRICT : 'nope')
+  console.log(dBbox)
+  if (dBbox != 1) {
+    console.log('full district search')
+    function reqListener(e) {
+      var supesData = JSON.parse(this.responseText);
+
+      supesData.features.forEach(function (f) {
+        var inDistrict = gju.pointInPolygon({
+          "type":"Point",
+          "coordinates":[long, lat]},
+          {
+            "type":"Polygon",
+            "coordinates": f.geometry.coordinates[0],
+          }
+        )
+        console.log(inDistrict ? f.properties.supdist : '')
+      })
+    }
+    var oReq = new XMLHttpRequest();
+    oReq.onload = reqListener;
+    oReq.open("get", "districts.geojson", true);
+    oReq.send();
+  }
+  bboxes.sfpd.forEach(function(f) {
+    var inBoxPd = gju.pointInBoundingBox({'coordinates':[long, lat]}, f.box)
+    pdBbox += inBoxPd ? 1 : 0;
+    if (inBoxPd) {
+      console.log(f.name)
+    }
   })
+  console.log(pdBbox)
+  if (pdBbox != 1) {
+    console.log('full pd search')
+    function sfpdReqListener(e) {
+      sfpdData = JSON.parse(this.responseText);
+      sfpdData.features.forEach(function (f) {
+        var inPrecinct = gju.pointInPolygon({
+          "type":"Point",
+          "coordinates":[long, lat]},
+          {
+            "type":"Polygon",
+            "coordinates": f.geometry.coordinates[0],
+          }
+        )
+        console.log(inPrecinct ? f.properties.district : '')
+      })
+    }
+    var sfpdReq = new XMLHttpRequest();
+    sfpdReq.onload = sfpdReqListener;
+    sfpdReq.open("get", "sfpd.geojson", true);
+    sfpdReq.send();
+  }
 }
+
+showUI();
 
 },{"./boundingboxes":3,"geojson-utils":41,"places.js":46}],5:[function(require,module,exports){
 /**
@@ -6832,7 +6912,7 @@ module.exports = function forEach (obj, fn, ctx) {
     xAll = xAll.sort(function (a,b) { return a - b })
     yAll = yAll.sort(function (a,b) { return a - b })
 
-    console.log([ [xAll[0], yAll[0]], [xAll[xAll.length - 1], yAll[yAll.length - 1]]])
+    // console.log([ [xAll[0], yAll[0]], [xAll[xAll.length - 1], yAll[yAll.length - 1]]])
     return [ [xAll[0], yAll[0]], [xAll[xAll.length - 1], yAll[yAll.length - 1]] ]
   }
 
