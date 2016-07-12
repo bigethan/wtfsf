@@ -89,6 +89,7 @@
             "supname": "Farrell",
             "supervisor": "2",
             "numbertext": "two",
+            "id": "two",
             "supdist": "SUPERVISORIAL DISTRICT 2"
         }
     }, {
@@ -149,6 +150,7 @@
             "supname": "Mar",
             "supervisor": "1",
             "numbertext": "one",
+            "id": "one",
             "supdist": "SUPERVISORIAL DISTRICT 1"
         }
     }, {
@@ -187,6 +189,7 @@
             "supname": "Tang",
             "supervisor": "4",
             "numbertext": "four",
+            "id": "four",
             "supdist": "SUPERVISORIAL DISTRICT 4"
         }
     }, {
@@ -276,6 +279,7 @@
             "supname": "Yee",
             "supervisor": "7",
             "numbertext": "seven",
+            "id": "seven",
             "supdist": "SUPERVISORIAL DISTRICT 7"
         }
     }, {
@@ -350,6 +354,7 @@
             "supname": "Wiener",
             "supervisor": "8",
             "numbertext": "eight",
+            "id": "eight",
             "supdist": "SUPERVISORIAL DISTRICT 8"
         }
     }, {
@@ -415,6 +420,7 @@
             "supname": "Avalos",
             "supervisor": "11",
             "numbertext": "eleven",
+            "id": "eleven",
             "supdist": "SUPERVISORIAL DISTRICT 11"
         }
     }, {
@@ -479,6 +485,7 @@
             "supname": "Campos",
             "supervisor": "9",
             "numbertext": "nine",
+            "id": "nine",
             "supdist": "SUPERVISORIAL DISTRICT 9"
         }
     }, {
@@ -640,6 +647,7 @@
             "supname": "Cohen",
             "supervisor": "10",
             "numbertext": "ten",
+            "id": "ten",
             "supdist": "SUPERVISORIAL DISTRICT 10"
         }
     }, {
@@ -754,6 +762,7 @@
             "supname": "Kim",
             "supervisor": "6",
             "numbertext": "six",
+            "id": "six",
             "supdist": "SUPERVISORIAL DISTRICT 6"
         }
     }, {
@@ -838,6 +847,7 @@
             "supname": "Chiu",
             "supervisor": "3",
             "numbertext": "three",
+            "id": "three",
             "supdist": "SUPERVISORIAL DISTRICT 3"
         }
     }, {
@@ -926,6 +936,7 @@
             "supname": "Breed",
             "supervisor": "5",
             "numbertext": "five",
+            "id": "five",
             "supdist": "SUPERVISORIAL DISTRICT 5"
         }
     }]

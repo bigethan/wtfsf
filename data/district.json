@@ -6,6 +6,7 @@
       "name": "District 11",
       "supePhone": "(415) 554-6975",
       "supeEmail": "John.Avalos@sfgov.org",
+      "description": "Probably the best disctrict. Neighborhoods, etc."
   },
   "five": {
       "supeName": "London Breed",
@@ -14,6 +15,7 @@
       "name": "District 5",
       "supePhone": "(415) 554-7630",
       "supeEmail": "London.Breed@sfgov.org",
+      "description": "Probably the best disctrict. Neighborhoods, etc."
   },
   "nine": {
       "supeName": "David Campos",
@@ -22,6 +24,7 @@
       "name": "District 9",
       "supePhone": "(415) 554-5144",
       "supeEmail": "David.Campos@sfgov.org",
+      "description": "Probably the best disctrict. Neighborhoods, etc."
   },
   "three": {
       "supeName": "Aaron Peskin",
@@ -30,6 +33,7 @@
       "name": "District 3",
       "supePhone": "(415) 554-7450",
       "supeEmail": "Aaron.Peskin@sfgov.org",
+      "description": "Probably the best disctrict. Neighborhoods, etc."
   },
   "ten": {
       "supeName": "Malia Cohen",
@@ -38,6 +42,7 @@
       "name": "District 10",
       "supePhone": "(415) 554-7670",
       "supeEmail": "Malia.Cohen@sfgov.org",
+      "description": "Probably the best disctrict. Neighborhoods, etc."
   },
   "two": {
       "supeName": "Mark Farrell",
@@ -46,6 +51,7 @@
       "name": "District 2",
       "supePhone": "(415) 554-7752",
       "supeEmail": "Mark.Farrell@sfgov.org",
+      "description": "Probably the best disctrict. Neighborhoods, etc."
   },
   "six": {
       "supeName": "Jane Kim",
@@ -54,6 +60,7 @@
       "name": "District 6",
       "supePhone": "(415) 554-7970",
       "supeEmail": "Jane.Kim@sfgov.org",
+      "description": "Probably the best disctrict. Neighborhoods, etc."
   },
   "one": {
       "supeName": "Eric Mar",
@@ -62,6 +69,7 @@
       "name": "District 1",
       "supePhone": "(415) 554-7410",
       "supeEmail": "Eric.L.Mar@sfgov.org",
+      "description": "Probably the best disctrict. Neighborhoods, etc."
   },
   "four": {
       "supeName": "Katy Tang",
@@ -70,6 +78,7 @@
       "name": "District 4",
       "supePhone": "(415) 554-7460",
       "supeEmail": "Katy.Tang@sfgov.org",
+      "description": "Probably the best disctrict. Neighborhoods, etc."
   },
   "eight": {
       "supeName": "Scott Wiener",
@@ -78,6 +87,7 @@
       "name": "District 8",
       "supePhone": "(415) 554-6968",
       "supeEmail": "Scott.Wiener@sfgov.org",
+      "description": "Probably the best disctrict. Neighborhoods, etc."
   },
   "seven": {
       "supeName": "Norman Yee",
@@ -86,5 +96,6 @@
       "name": "District 7",
       "supePhone": "(415) 554-6516",
       "supeEmail": "Norman.Yee@sfgov.org",
+      "description": "Probably the best disctrict. Neighborhoods, etc."
     }
 }
